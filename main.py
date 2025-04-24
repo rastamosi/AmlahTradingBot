@@ -4,7 +4,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, CommandHandler, ContextTypes
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-"hell0000"
+import io
+from googleapiclient.http import MediaIoBaseDownload
+
+
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,9 +58,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif files:
         await query.edit_message_text("📄 Sending files...")
         for file in files:
-            file_data = drive_service.files().get_media(fileId=file['id']).execute()
-            await context.bot.send_document(chat_id=query.message.chat_id, document=file_data, filename=file['name'])
+            fh = io.BytesIO()
+            request = drive_service.files().get_media(fileId=file['id'])
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
 
+            fh.seek(0)
+            await context.bot.send_document(chat_id=query.message.chat.id, document=fh, filename=file['name'])
+
+# add a message when the folder is empty so users don't get stuck:
+    if not folders and not files:
+        await query.edit_message_text("🚫 This folder is empty.")
+        return
 # Main
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()
