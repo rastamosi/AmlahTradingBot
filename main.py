@@ -84,24 +84,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button))
 
-# ✅ Webhook route
+# ✅ Webhook route with logging
 @app.post(f"/{BOT_TOKEN}")
 async def telegram_webhook(req: Request):
     data = await req.json()
+    logger.info(f"📥 Incoming update: {data}")  # 👈 This line logs all incoming Telegram messages
     update = Update.de_json(data, application.bot)
     await application.process_update(update)
     return {"ok": True}
 
 # ✅ FastAPI Startup Event: Set webhook and initialize bot
 @app.on_event("startup")
-async def on_startup():
+async def startup():
     await application.initialize()
-    # Remove old webhook first (optional)
     await application.bot.delete_webhook(drop_pending_updates=True)
-    # Set new webhook
     await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
     logger.info("✅ Webhook set and bot initialized.")
-
-@app.on_event("startup")
-async def startup_event():
     logger.info("🚀 Bot is starting up and webhook should be active!")
