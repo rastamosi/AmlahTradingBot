@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
 # Logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Environment Variables
@@ -101,3 +101,7 @@ async def on_startup():
     # Set new webhook
     await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
     logger.info("✅ Webhook set and bot initialized.")
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("🚀 Bot is starting up and webhook should be active!")
