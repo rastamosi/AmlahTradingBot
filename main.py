@@ -16,8 +16,8 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Environment Variables
-BOT_TOKEN = os.environ.get("7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww")
-WEBHOOK_URL = os.environ.get("https://amlahtradingbot.onrender.com/webhook")
+BOT_TOKEN = "7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww"
+WEBHOOK_URL = "https://amlahtradingbot.onrender.com"
 
 # Google Drive API setup
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
@@ -84,18 +84,22 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button))
 
-# ✅ Webhook route with logging
-@app.post(f"/7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww")
+# ✅ Hardcoded Webhook Route
+@app.post("/7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww")
 async def telegram_webhook(req: Request):
     data = await req.json()
-    logger.info(f"📥 Incoming update: {data}")  # 👈 This line logs all incoming Telegram messages
     update = Update.de_json(data, application.bot)
     await application.process_update(update)
     return {"ok": True}
 
-# ✅ FastAPI Startup Event: Set webhook and initialize bot
+# ✅ Health Check Route (for browser test)
+@app.get("/")
+async def health_check():
+    return {"message": "✅ Bot is live"}
+
+# ✅ Webhook Setup on Startup
 @app.on_event("startup")
-async def startup():
+async def on_startup():
     await application.initialize()
     await application.bot.delete_webhook(drop_pending_updates=True)
     await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
