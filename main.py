@@ -16,8 +16,8 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Environment Variables
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
+BOT_TOKEN = os.environ.get("7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww")
+WEBHOOK_URL = os.environ.get("https://amlahtradingbot.onrender.com/webhook")
 
 # Google Drive API setup
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
