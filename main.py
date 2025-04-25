@@ -103,3 +103,11 @@ async def on_startup():
     await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
     logger.info("✅ Webhook set and bot initialized.")
     logger.info("🚀 Bot is starting up and webhook should be active!")
+
+@app.post(f"/{BOT_TOKEN}")
+async def telegram_webhook(req: Request):
+    data = await req.json()
+    logger.info("📩 Webhook received: %s", data)  # <-- Add this line
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)
+    return {"ok": True}
