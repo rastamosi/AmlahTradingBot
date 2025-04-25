@@ -85,7 +85,7 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button))
 
 # ✅ Webhook route with logging
-@app.post(f"/{BOT_TOKEN}")
+@app.post(f"/7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww")
 async def telegram_webhook(req: Request):
     data = await req.json()
     logger.info(f"📥 Incoming update: {data}")  # 👈 This line logs all incoming Telegram messages
