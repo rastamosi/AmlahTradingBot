@@ -84,6 +84,7 @@ application.add_handler(CallbackQueryHandler(button))
 @app.post(f"/{BOT_TOKEN}")
 async def telegram_webhook(req: Request):
     data = await req.json()
+    logger.info(f"📩 Incoming update: {data}")  # 👈 Add this
     update = Update.de_json(data, application.bot)
     await application.process_update(update)
     return {"ok": True}
