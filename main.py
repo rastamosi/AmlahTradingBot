@@ -29,10 +29,9 @@ drive_service = build('drive', 'v3', credentials=credentials)
 # FastAPI app
 app = FastAPI()
 
-# Telegram application
+# Telegram app
 application = Application.builder().token(BOT_TOKEN).rate_limiter(AIORateLimiter()).build()
 
-# Helper: list items in Drive
 def list_drive_items(folder_id):
     results = drive_service.files().list(
         q=f"'{folder_id}' in parents and trashed = false",
@@ -40,9 +39,8 @@ def list_drive_items(folder_id):
     ).execute()
     return results.get('files', [])
 
-# Command: /start
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info("✅ Received /start command")
     root_id = '1eofoRbraOL4W1uqxTBJlM--ko4_k0aax'
     items = list_drive_items(root_id)
     keyboard = [
@@ -51,7 +49,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text("📂 Choose a folder:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Handler: Inline button press
+# Folder navigation
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -82,7 +80,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button))
 
-# Webhook route
+# Telegram webhook handler (route must match token)
 @app.post(f"/{BOT_TOKEN}")
 async def telegram_webhook(req: Request):
     data = await req.json()
@@ -90,24 +88,11 @@ async def telegram_webhook(req: Request):
     await application.process_update(update)
     return {"ok": True}
 
-# Optional: root route for Render health check
-@app.get("/")
-async def root():
-    return {"message": "🤖 Bot is alive!"}
-
-# Startup: init + set webhook
+# Startup hook: Set webhook
 @app.on_event("startup")
 async def on_startup():
     await application.initialize()
     await application.bot.delete_webhook(drop_pending_updates=True)
-    await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
+    await application.bot.set_webhook(url=f"{WEBHOOK_URL}")
     logger.info("✅ Webhook set and bot initialized.")
     logger.info("🚀 Bot is starting up and webhook should be active!")
-
-@app.post(f"/{BOT_TOKEN}")
-async def telegram_webhook(req: Request):
-    data = await req.json()
-    logger.info("📩 Webhook received: %s", data)  # <-- Add this line
-    update = Update.de_json(data, application.bot)
-    await application.process_update(update)
-    return {"ok": True}
