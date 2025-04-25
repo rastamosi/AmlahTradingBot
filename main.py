@@ -41,6 +41,7 @@ def list_drive_items(folder_id):
 
 # /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("🚀 /start received") 
     root_id = '1eofoRbraOL4W1uqxTBJlM--ko4_k0aax'
     items = list_drive_items(root_id)
     keyboard = [
