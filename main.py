@@ -91,8 +91,12 @@ async def telegram_webhook(req: Request):
 # Startup hook: Set webhook
 @app.on_event("startup")
 async def on_startup():
-    await application.initialize()
-    await application.bot.delete_webhook(drop_pending_updates=True)
-    await application.bot.set_webhook(url=f"{WEBHOOK_URL}")
-    logger.info("✅ Webhook set and bot initialized.")
-    logger.info("🚀 Bot is starting up and webhook should be active!")
+    logger.info("🌱 Startup initiated")
+    try:
+        await application.initialize()
+        await application.bot.delete_webhook(drop_pending_updates=True)
+        await application.bot.set_webhook(url=f"{WEBHOOK_URL}")
+        logger.info("✅ Webhook set and bot initialized.")
+    except Exception as e:
+        logger.error(f"❌ Startup error: {e}")
+
