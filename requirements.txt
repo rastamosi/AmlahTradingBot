@@ -4,3 +4,4 @@ google-auth==2.29.0
 python-telegram-bot==20.6
 google-auth-oauthlib==1.2.0
 uvicorn
+fastapi
