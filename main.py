@@ -1,7 +1,7 @@
 import os
 import logging
 import io
-import asyncio
+from fastapi import FastAPI, Request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CallbackQueryHandler, CommandHandler, ContextTypes, AIORateLimiter
@@ -10,21 +10,25 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
-# --- CONFIG ---
-BOT_TOKEN = "7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww"
-ROOT_FOLDER_ID = '1eofoRbraOL4W1uqxTBJlM--ko4_k0aax'
-SERVICE_ACCOUNT_FILE = 'credentials.json'
-
-# --- Logging ---
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Google Drive API setup ---
+# Constants (already filled)
+BOT_TOKEN = "7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww"
+WEBHOOK_URL = "https://amlahtradingbot.onrender.com/7891601923:AAEDbZIyK5xIfy8a46-gdz73moKS7CgeUww"
+ROOT_ID = "1eofoRbraOL4W1uqxTBJlM--ko4_k0aax"
+
+# Google Drive setup
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 credentials = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    'credentials.json', scopes=SCOPES
 )
 drive_service = build('drive', 'v3', credentials=credentials)
+
+# FastAPI + Telegram setup
+app = FastAPI()
+application = Application.builder().token(BOT_TOKEN).rate_limiter(AIORateLimiter()).build()
 
 def list_drive_items(folder_id):
     results = drive_service.files().list(
@@ -33,20 +37,19 @@ def list_drive_items(folder_id):
     ).execute()
     return results.get('files', [])
 
-# --- Handlers ---
+# /start handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info("🚀 /start command triggered")
-    items = list_drive_items(ROOT_FOLDER_ID)
+    items = list_drive_items(ROOT_ID)
     keyboard = [
         [InlineKeyboardButton(f"📁 {item['name']}", callback_data=item['id'])]
         for item in items if item['mimeType'] == 'application/vnd.google-apps.folder'
     ]
     await update.message.reply_text("📂 Choose a folder:", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# Folder navigation
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
     folder_id = query.data
     items = list_drive_items(folder_id)
     files = [item for item in items if not item['mimeType'].endswith('.folder')]
@@ -69,18 +72,19 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.edit_message_text("🚫 This folder is empty.")
 
-# --- Main run ---
-async def main():
-    app = Application.builder().token(BOT_TOKEN).rate_limiter(AIORateLimiter()).build()
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CallbackQueryHandler(button))
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(button))
+@app.post(f"/{BOT_TOKEN}")
+async def telegram_webhook(req: Request):
+    data = await req.json()
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)
+    return {"ok": True}
 
-    logger.info("🤖 Bot is starting with polling...")
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling()
-    await app.updater.idle()
-
-if __name__ == '__main__':
-    asyncio.run(main())
+@app.on_event("startup")
+async def on_startup():
+    await application.initialize()
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    logger.info("✅ Webhook set successfully.")
