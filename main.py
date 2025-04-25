@@ -2,40 +2,37 @@ import os
 import logging
 import io
 from fastapi import FastAPI, Request
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    filters,
+    Application, CallbackQueryHandler, CommandHandler, ContextTypes
 )
+from telegram.ext import AIORateLimiter
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 
-# Load environment variables
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-
-# Logging setup
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# FastAPI app for Render
-app = FastAPI()
+# Telegram bot token
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "your-bot-token-here")
 
-# Google Drive setup
+# Google Drive API setup
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 SERVICE_ACCOUNT_FILE = 'credentials.json'
-
 credentials = service_account.Credentials.from_service_account_file(
     SERVICE_ACCOUNT_FILE, scopes=SCOPES
 )
 drive_service = build('drive', 'v3', credentials=credentials)
 
-# List items in folder
+# Initialize FastAPI app
+app = FastAPI()
+
+# Initialize Telegram Application
+application = Application.builder().token(BOT_TOKEN).rate_limiter(AIORateLimiter()).build()
+
+# Google Drive Helpers
 def list_drive_items(folder_id):
     results = drive_service.files().list(
         q=f"'{folder_id}' in parents and trashed = false",
@@ -43,13 +40,17 @@ def list_drive_items(folder_id):
     ).execute()
     return results.get('files', [])
 
-# Telegram handlers
+# Command Handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     root_id = '1eofoRbraOL4W1uqxTBJlM--ko4_k0aax'
     items = list_drive_items(root_id)
-    keyboard = [[InlineKeyboardButton(f"📁 {item['name']}", callback_data=item['id'])] for item in items if item['mimeType'] == 'application/vnd.google-apps.folder']
+    keyboard = [
+        [InlineKeyboardButton(f"📁 {item['name']}", callback_data=item['id'])]
+        for item in items if item['mimeType'] == 'application/vnd.google-apps.folder'
+    ]
     await update.message.reply_text("📂 Choose a folder:", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# Callback Handler
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -72,28 +73,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             done = False
             while not done:
                 status, done = downloader.next_chunk()
-
             fh.seek(0)
             await context.bot.send_document(chat_id=query.message.chat.id, document=fh, filename=file['name'])
 
     if not folders and not files:
         await query.edit_message_text("🚫 This folder is empty.")
 
-# Build the Telegram bot app
-application = Application.builder().token(BOT_TOKEN).build()
+# Register handlers
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button))
 
-# Webhook route for Render
-@app.post("/webhook")
-async def process_webhook(request: Request):
-    data = await request.json()
+# Webhook route
+@app.post(f"/{BOT_TOKEN}")
+async def telegram_webhook(req: Request):
+    data = await req.json()
     update = Update.de_json(data, application.bot)
     await application.process_update(update)
     return {"ok": True}
-
-# Startup: Set webhook
-@app.on_event("startup")
-async def on_startup():
-    await application.bot.delete_webhook(drop_pending_updates=True)
-    await application.bot.set_webhook(url=WEBHOOK_URL)
