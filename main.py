@@ -29,9 +29,10 @@ drive_service = build('drive', 'v3', credentials=credentials)
 # FastAPI app
 app = FastAPI()
 
-# Telegram app
+# Telegram application
 application = Application.builder().token(BOT_TOKEN).rate_limiter(AIORateLimiter()).build()
 
+# Helper: list items in Drive
 def list_drive_items(folder_id):
     results = drive_service.files().list(
         q=f"'{folder_id}' in parents and trashed = false",
@@ -39,8 +40,9 @@ def list_drive_items(folder_id):
     ).execute()
     return results.get('files', [])
 
-# /start command
+# Command: /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info("✅ Received /start command")
     root_id = '1eofoRbraOL4W1uqxTBJlM--ko4_k0aax'
     items = list_drive_items(root_id)
     keyboard = [
@@ -49,7 +51,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text("📂 Choose a folder:", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# Folder navigation
+# Handler: Inline button press
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -80,7 +82,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button))
 
-# FastAPI webhook
+# Webhook route
 @app.post(f"/{BOT_TOKEN}")
 async def telegram_webhook(req: Request):
     data = await req.json()
@@ -88,7 +90,12 @@ async def telegram_webhook(req: Request):
     await application.process_update(update)
     return {"ok": True}
 
-# Startup
+# Optional: root route for Render health check
+@app.get("/")
+async def root():
+    return {"message": "🤖 Bot is alive!"}
+
+# Startup: init + set webhook
 @app.on_event("startup")
 async def on_startup():
     await application.initialize()
@@ -96,4 +103,3 @@ async def on_startup():
     await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
     logger.info("✅ Webhook set and bot initialized.")
     logger.info("🚀 Bot is starting up and webhook should be active!")
-
