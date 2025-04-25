@@ -15,8 +15,9 @@ from googleapiclient.http import MediaIoBaseDownload
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Telegram bot token
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "your-bot-token-here")
+# Environment Variables
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 
 # Google Drive API setup
 SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
@@ -83,10 +84,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button))
 
-# Webhook route
+# ✅ Webhook route
 @app.post(f"/{BOT_TOKEN}")
 async def telegram_webhook(req: Request):
     data = await req.json()
     update = Update.de_json(data, application.bot)
     await application.process_update(update)
     return {"ok": True}
+
+# ✅ FastAPI Startup Event: Set webhook and initialize bot
+@app.on_event("startup")
+async def on_startup():
+    await application.initialize()
+    # Remove old webhook first (optional)
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    # Set new webhook
+    await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{BOT_TOKEN}")
+    logger.info("✅ Webhook set and bot initialized.")
